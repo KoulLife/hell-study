@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create *)",
+      "Bash(npx create-vite@latest hell-study --template react-ts)",
+      "Bash(npm install *)",
+      "Bash(npx shadcn@latest init --defaults)",
+      "Bash(node -e \"require\\('path'\\)\")",
+      "Bash(npx shadcn@4.7.0 init --defaults)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Skill(connect-chrome)",
+      "Skill(connect-chrome:*)",
+      "mcp__Claude_in_Chrome__list_connected_browsers",
+      "mcp__Claude_in_Chrome__select_browser",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "mcp__Claude_in_Chrome__browser_batch",
+      "PowerShell(cd \"C:\\\\Users\\\\User\\\\Desktop\\\\Hell-Study\\\\hell-study\"; $env:NODE_ENV=\"development\"; npx vite build 2>&1 | Select-Object -First 60)",
+      "PowerShell(Get-Process -Name \"node\" -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Force)",
+      "Bash(npx vite *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\User\\\\Desktop\\\\Hell-Study\\\\backend\\\\Hell-Study\" -Recurse -Force)",
+      "Bash(Select-Object -Property FullName, PSIsContainer)",
+      "Bash(Format-Table -AutoSize)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\User\\\\Desktop\\\\Hell-Study\\\\backend\\\\Hell-Study\" -Recurse -Depth 3 | Select-Object -Property @{n='Path';e={$_.FullName.Replace\\('C:\\\\Users\\\\User\\\\Desktop\\\\Hell-Study\\\\backend\\\\Hell-Study\\\\',''\\)}} | Format-Table -AutoSize)",
+      "PowerShell([System.IO.Directory]::GetFiles\\(\"C:\\\\Users\\\\User\\\\Desktop\\\\Hell-Study\\\\backend\\\\Hell-Study\"\\) + [System.IO.Directory]::GetDirectories\\(\"C:\\\\Users\\\\User\\\\Desktop\\\\Hell-Study\\\\backend\\\\Hell-Study\"\\))"
+    ]
+  }
+}
