@@ -6,8 +6,8 @@ import {
   Upload, RotateCcw, MessageSquare, CheckSquare, Plus, Pencil, Save, X, CheckCircle, Users, Menu,
 } from 'lucide-react';
 import BaljaeEditor from '@/components/ui/baljae-editor';
-import { course as courseApi, assignment as assignmentApi, enrollment as enrollmentApi, submission as submissionApi, ApiError } from '@/lib/api';
-import type { Course, Assignment, Submission, SubmissionStatus } from '@/lib/api';
+import { course as courseApi, assignment as assignmentApi, enrollment as enrollmentApi, submission as submissionApi, topic as topicApi, ApiError } from '@/lib/api';
+import type { Course, Assignment, Submission, SubmissionStatus, Topic } from '@/lib/api';
 
 // ── Countdown hook ───────────────────────────────────────────────
 function useCountdown(deadline: Date | null) {
@@ -29,8 +29,8 @@ function useCountdown(deadline: Date | null) {
   return text;
 }
 
-// ── Baljae post (local) ──────────────────────────────────────────
-interface Post { id: string; round: number; title: string; content: string; date: string; }
+// ── Baljae post type alias ────────────────────────────────────────
+type Post = Topic;
 
 // ── Component ────────────────────────────────────────────────────
 const CourseDetailPage = () => {
@@ -222,9 +222,8 @@ const CourseDetailPage = () => {
         roundNumber: activeRound,
       });
       setAssignments(prev => {
-        const updated = [...prev];
-        updated[activeRound - 1] = created;
-        return updated;
+        const filtered = prev.filter(a => a.roundNumber !== created.roundNumber);
+        return [...filtered, created].sort((x, y) => x.roundNumber - y.roundNumber);
       });
       setAssignModalOpen(false);
     } catch (err) {
@@ -285,12 +284,12 @@ const CourseDetailPage = () => {
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
-  // Set activeRound to current active round after data loads
+  // Set activeRound to current active round after data loads (최소 1)
   useEffect(() => {
-    if (courseData) {
+    if (courseData && courseData.totalRounds > 0) {
       setActiveRound(courseData.completedRounds < courseData.totalRounds
         ? courseData.completedRounds + 1
-        : courseData.completedRounds);
+        : courseData.totalRounds);
     }
   }, [courseData]);
 
@@ -302,11 +301,14 @@ const CourseDetailPage = () => {
   // Baljae state
   const [baljaeRound, setBaljaeRound] = useState(1);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [editTitle, setEditTitle] = useState('');
   const [isNewPost, setIsNewPost] = useState(false);
+  const [baljaeError, setBaljaeError] = useState<string | null>(null);
+  const [baljaeDeleteLoading, setBaljaeDeleteLoading] = useState(false);
 
   // Feedback state
   const [feedbackRound, setFeedbackRound] = useState(1);
@@ -325,15 +327,23 @@ const CourseDetailPage = () => {
     return `${d.getMonth() + 1}월 ${d.getDate()}일 ${ampm} ${h12}시 ${String(d.getMinutes()).padStart(2, '0')}분`;
   };
 
-  const roundTabs = [
-    { id: 0, label: 'Ready' },
-    ...Array.from({ length: totalRounds }, (_, i) => ({ id: i + 1, label: `Round ${i + 1}` })),
-  ];
+  const roundTabs = Array.from({ length: totalRounds }, (_, i) => ({ id: i + 1, label: `Round ${i + 1}` }));
 
   const roundList = Array.from({ length: totalRounds }, (_, i) => i + 1);
 
   // Baljae helpers
-  const filteredPosts = posts.filter(p => p.round === baljaeRound);
+  const loadPosts = async (round: number) => {
+    setPostsLoading(true);
+    setBaljaeError(null);
+    try {
+      const data = await topicApi.getByRound(parseInt(id, 10), round);
+      setPosts(data);
+    } catch {
+      setBaljaeError('발제 목록을 불러오지 못했습니다.');
+    } finally {
+      setPostsLoading(false);
+    }
+  };
 
   const startEdit = (post: Post) => {
     setSelectedPost(post);
@@ -341,39 +351,62 @@ const CourseDetailPage = () => {
     setEditContent(post.content);
     setIsEditing(true);
     setIsNewPost(false);
+    setBaljaeError(null);
   };
 
   const startNew = () => {
-    const newPost: Post = {
-      id: `r${baljaeRound}-${Date.now()}`,
-      round: baljaeRound,
-      title: '',
-      content: '',
-      date: new Date().toISOString().slice(0, 10),
-    };
-    setSelectedPost(newPost);
+    setSelectedPost(null);
     setEditTitle('');
     setEditContent('');
     setIsEditing(true);
     setIsNewPost(true);
+    setBaljaeError(null);
   };
 
-  const savePost = () => {
-    if (!selectedPost) return;
-    const saved: Post = { ...selectedPost, title: editTitle || '제목 없음', content: editContent };
-    if (isNewPost) {
-      setPosts(prev => [...prev, saved]);
-    } else {
-      setPosts(prev => prev.map(p => p.id === saved.id ? saved : p));
+  const savePost = async () => {
+    if (!editTitle.trim()) return;
+    setBaljaeError(null);
+    try {
+      if (isNewPost) {
+        const created = await topicApi.create(parseInt(id, 10), baljaeRound, {
+          title: editTitle.trim(),
+          content: editContent,
+        });
+        setPosts(prev => [...prev, created]);
+        setSelectedPost(created);
+      } else if (selectedPost) {
+        const updated = await topicApi.update(selectedPost.id, {
+          title: editTitle.trim(),
+          content: editContent,
+        });
+        setPosts(prev => prev.map(p => p.id === updated.id ? updated : p));
+        setSelectedPost(updated);
+      }
+      setIsEditing(false);
+      setIsNewPost(false);
+    } catch (err) {
+      setBaljaeError(err instanceof Error ? err.message : '저장 중 오류가 발생했습니다.');
     }
-    setSelectedPost(saved);
-    setIsEditing(false);
-    setIsNewPost(false);
+  };
+
+  const deletePost = async (post: Post) => {
+    if (!confirm(`"${post.title}" 발제를 삭제하시겠습니까?`)) return;
+    setBaljaeDeleteLoading(true);
+    try {
+      await topicApi.delete(post.id);
+      setPosts(prev => prev.filter(p => p.id !== post.id));
+      setSelectedPost(null);
+    } catch (err) {
+      setBaljaeError(err instanceof Error ? err.message : '삭제 중 오류가 발생했습니다.');
+    } finally {
+      setBaljaeDeleteLoading(false);
+    }
   };
 
   const cancelEdit = () => {
     setIsEditing(false);
-    if (isNewPost) setSelectedPost(null);
+    setBaljaeError(null);
+    if (isNewPost) { setSelectedPost(null); setIsNewPost(false); }
   };
 
   const breadcrumbSection = activePage === 'baljae' ? '발제'
@@ -454,7 +487,7 @@ const CourseDetailPage = () => {
             {/* 발제 */}
             <button
               className="cd-nav-item cd-nav-collapsible"
-              onClick={() => { setBaljaeOpen(v => !v); setActivePage('baljae'); setSelectedPost(null); setIsEditing(false); closeSidebar(); }}
+              onClick={() => { setBaljaeOpen(v => !v); setActivePage('baljae'); setSelectedPost(null); setIsEditing(false); closeSidebar(); loadPosts(baljaeRound); }}
             >
               <span>발제</span>
               {baljaeOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -465,7 +498,7 @@ const CourseDetailPage = () => {
                   <button
                     key={r}
                     className={`cd-nav-subitem${activePage === 'baljae' && baljaeRound === r ? ' cd-nav-subitem--active' : ''}`}
-                    onClick={() => { setActivePage('baljae'); setBaljaeRound(r); setSelectedPost(null); setIsEditing(false); closeSidebar(); }}
+                    onClick={() => { setActivePage('baljae'); setBaljaeRound(r); setSelectedPost(null); setIsEditing(false); closeSidebar(); loadPosts(r); }}
                   >
                     Round {r} 발제
                   </button>
@@ -812,7 +845,7 @@ const CourseDetailPage = () => {
               <p style={{ color: 'var(--clr-red)', fontSize: '0.8125rem', marginBottom: '0.75rem' }}>{completeError}</p>
             )}
 
-            <div className="cd-round-label">{activeRound === 0 ? 'READY' : `ROUND ${activeRound}`}</div>
+            <div className="cd-round-label">ROUND {activeRound}</div>
             <div className="cd-tabs">
               {roundTabs.map(t => (
                 <button
@@ -833,11 +866,7 @@ const CourseDetailPage = () => {
             </div>
 
             <div className="cd-content">
-              {activeRound === 0 ? (
-                <div className="cd-card">
-                  <p className="cd-empty">아직 라운드가 시작되지 않았습니다.</p>
-                </div>
-              ) : isAdmin ? (
+              {isAdmin ? (
                 /* ── Admin: 과제등록 뷰 ── */
                 <div className="cd-card">
                   <div className="cd-assign-top">
@@ -992,7 +1021,7 @@ const CourseDetailPage = () => {
                 <button
                   key={r}
                   className={`cd-tab${baljaeRound === r ? ' cd-tab--active' : ''}`}
-                  onClick={() => { setBaljaeRound(r); setSelectedPost(null); setIsEditing(false); }}
+                  onClick={() => { setBaljaeRound(r); setSelectedPost(null); setIsEditing(false); loadPosts(r); }}
                 >
                   <span className="cd-tab-icon"><Flame size={13} className="text-orange-400" /></span>
                   Round {r}
@@ -1001,48 +1030,51 @@ const CourseDetailPage = () => {
             </div>
 
             <div className="cd-content">
-              {selectedPost ? (
+              {isEditing ? (
+                /* 새 글 작성 / 수정 폼 */
                 <div className="cd-card">
-                  {isEditing ? (
-                    <>
-                      <input
-                        className="baljae-title-input"
-                        value={editTitle}
-                        onChange={e => setEditTitle(e.target.value)}
-                        placeholder="제목을 입력하세요"
-                      />
-                      <BaljaeEditor
-                        key={selectedPost.id + '-edit'}
-                        content={editContent}
-                        editable
-                        onUpdate={setEditContent}
-                      />
-                      <div className="baljae-post-actions">
-                        <button className="baljae-btn-save" onClick={savePost}><Save size={14} />저장</button>
-                        <button className="baljae-btn-cancel" onClick={cancelEdit}><X size={14} />취소</button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="baljae-view-header">
-                        <h2 className="baljae-view-title">{selectedPost.title}</h2>
-                        <div className="baljae-view-meta">
-                          <span>{selectedPost.date}</span>
-                          {isAdmin && (
-                            <button className="baljae-btn-edit" onClick={() => startEdit(selectedPost)}><Pencil size={13} />수정</button>
-                          )}
-                          <button className="baljae-btn-back" onClick={() => setSelectedPost(null)}><X size={13} />목록</button>
-                        </div>
-                      </div>
-                      <BaljaeEditor
-                        key={selectedPost.id + '-view'}
-                        content={selectedPost.content}
-                        editable={false}
-                      />
-                    </>
-                  )}
+                  <input
+                    className="baljae-title-input"
+                    value={editTitle}
+                    onChange={e => setEditTitle(e.target.value)}
+                    placeholder="제목을 입력하세요"
+                  />
+                  <BaljaeEditor
+                    key={(selectedPost?.id ?? 'new') + '-edit'}
+                    content={editContent}
+                    editable
+                    onUpdate={setEditContent}
+                  />
+                  {baljaeError && <p style={{ color: 'var(--clr-red)', fontSize: '0.8125rem', margin: '0.5rem 0 0' }}>{baljaeError}</p>}
+                  <div className="baljae-post-actions">
+                    <button className="baljae-btn-save" onClick={savePost}><Save size={14} />저장</button>
+                    <button className="baljae-btn-cancel" onClick={cancelEdit}><X size={14} />취소</button>
+                  </div>
+                </div>
+              ) : selectedPost ? (
+                /* 글 상세 보기 */
+                <div className="cd-card">
+                  <div className="baljae-view-header">
+                    <h2 className="baljae-view-title">{selectedPost.title}</h2>
+                    <div className="baljae-view-meta">
+                      <span>{new Date(selectedPost.createdAt).toLocaleDateString('ko-KR')}</span>
+                      {isAdmin && (
+                        <>
+                          <button className="baljae-btn-edit" onClick={() => startEdit(selectedPost)}><Pencil size={13} />수정</button>
+                          <button className="baljae-btn-delete" onClick={() => deletePost(selectedPost)} disabled={baljaeDeleteLoading}>삭제</button>
+                        </>
+                      )}
+                      <button className="baljae-btn-back" onClick={() => setSelectedPost(null)}><X size={13} />목록</button>
+                    </div>
+                  </div>
+                  <BaljaeEditor
+                    key={selectedPost.id + '-view'}
+                    content={selectedPost.content}
+                    editable={false}
+                  />
                 </div>
               ) : (
+                /* 목록 */
                 <div className="cd-card">
                   <div className="baljae-list-header">
                     <span className="baljae-list-title">Round {baljaeRound} 발제 자료</span>
@@ -1050,14 +1082,17 @@ const CourseDetailPage = () => {
                       <button className="baljae-btn-new" onClick={startNew}><Plus size={14} />새 글 작성</button>
                     )}
                   </div>
-                  {filteredPosts.length === 0 ? (
+                  {baljaeError && <p style={{ color: 'var(--clr-red)', fontSize: '0.8125rem', margin: '0 0 0.5rem' }}>{baljaeError}</p>}
+                  {postsLoading ? (
+                    <p className="cd-empty">불러오는 중...</p>
+                  ) : posts.length === 0 ? (
                     <p className="cd-empty">아직 발제 자료가 없습니다.</p>
                   ) : (
                     <ul className="baljae-post-list">
-                      {filteredPosts.map(post => (
+                      {posts.map(post => (
                         <li key={post.id} className="baljae-post-item" onClick={() => setSelectedPost(post)}>
                           <span className="baljae-post-item-title">{post.title}</span>
-                          <span className="baljae-post-item-date">{post.date}</span>
+                          <span className="baljae-post-item-date">{new Date(post.createdAt).toLocaleDateString('ko-KR')}</span>
                         </li>
                       ))}
                     </ul>
@@ -1081,9 +1116,9 @@ const CourseDetailPage = () => {
             ) : (
               <>
                 <div className="cd-tabs">
-                  {assignments.map((_, i) => {
-                    const r = i + 1;
-                    const sub = mySubmissions.get(assignments[i].id);
+                  {assignments.map((assign) => {
+                    const r = assign.roundNumber;
+                    const sub = mySubmissions.get(assign.id);
                     const statusIcon = !sub
                       ? <Flame size={13} className="text-orange-400" />
                       : sub.status === 'PASSED'

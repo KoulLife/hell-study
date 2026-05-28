@@ -1,5 +1,6 @@
 package Koul.Hell_Study.domain.topic;
 
+import Koul.Hell_Study.domain.course.Course;
 import Koul.Hell_Study.domain.user.User;
 import jakarta.persistence.*;
 import lombok.*;
@@ -23,11 +24,16 @@ public class Topic {
     @Column(nullable = false, length = 200)
     private String title;
 
-    // .md 기반 본문
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    // Admin 또는 SuperAdmin만 작성 가능 (서비스 레이어에서 Role 검증)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "course_id", nullable = false)
+    private Course course;
+
+    @Column(nullable = false)
+    private int roundNumber;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "author_id", nullable = false)
     private User author;
@@ -41,9 +47,11 @@ public class Topic {
     private LocalDateTime updatedAt;
 
     @Builder
-    private Topic(String title, String content, User author) {
+    private Topic(String title, String content, Course course, int roundNumber, User author) {
         this.title = title;
         this.content = content;
+        this.course = course;
+        this.roundNumber = roundNumber;
         this.author = author;
     }
 

@@ -1267,7 +1267,8 @@ body {
 }
 
 .baljae-btn-back,
-.baljae-btn-edit {
+.baljae-btn-edit,
+.baljae-btn-delete {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1301,6 +1302,22 @@ body {
 
 .baljae-btn-edit:hover {
   background: rgba(255,183,65,0.18);
+}
+
+.baljae-btn-delete {
+  background: rgba(224,92,58,0.1);
+  border: 1px solid rgba(224,92,58,0.3);
+  color: var(--clr-red);
+  transition: background 0.12s;
+}
+
+.baljae-btn-delete:hover:not(:disabled) {
+  background: rgba(224,92,58,0.18);
+}
+
+.baljae-btn-delete:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* Editor */

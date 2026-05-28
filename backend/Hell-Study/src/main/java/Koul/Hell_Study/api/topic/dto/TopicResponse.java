@@ -12,6 +12,8 @@ public class TopicResponse {
     private Long id;
     private String title;
     private String content;
+    private Long courseId;
+    private int roundNumber;
     private String authorName;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -21,6 +23,8 @@ public class TopicResponse {
                 .id(topic.getId())
                 .title(topic.getTitle())
                 .content(topic.getContent())
+                .courseId(topic.getCourse().getId())
+                .roundNumber(topic.getRoundNumber())
                 .authorName(topic.getAuthor().getName())
                 .createdAt(topic.getCreatedAt())
                 .updatedAt(topic.getUpdatedAt())

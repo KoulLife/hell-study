@@ -22,29 +22,31 @@ public class TopicController {
 
     private final TopicService topicService;
 
-    @GetMapping("/topics")
-    @Operation(summary = "발제 목록 조회 (2-2)")
-    public ResponseEntity<List<TopicResponse>> getTopics() {
-        return ResponseEntity.ok(topicService.getTopics());
+    // 코스+라운드별 발제 목록 조회 (수강 승인된 사용자 + Admin)
+    @GetMapping("/courses/{courseId}/rounds/{roundNumber}/topics")
+    @Operation(summary = "코스+라운드별 발제 목록 조회")
+    public ResponseEntity<List<TopicResponse>> getTopics(
+            @PathVariable Long courseId,
+            @PathVariable int roundNumber,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(topicService.getTopicsByCourseAndRound(courseId, roundNumber, userDetails.getUsername()));
     }
 
-    @GetMapping("/topics/{id}")
-    @Operation(summary = "발제 상세 조회")
-    public ResponseEntity<TopicResponse> getTopic(@PathVariable Long id) {
-        return ResponseEntity.ok(topicService.getTopic(id));
-    }
-
-    @PostMapping("/admin/topics")
-    @Operation(summary = "발제 작성 - Admin 이상 (2-1)")
+    // 발제 작성 (Admin 이상, 해당 코스 소유자 또는 SuperAdmin)
+    @PostMapping("/admin/courses/{courseId}/rounds/{roundNumber}/topics")
+    @Operation(summary = "발제 작성 - Admin 이상")
     public ResponseEntity<TopicResponse> create(
+            @PathVariable Long courseId,
+            @PathVariable int roundNumber,
             @RequestBody TopicRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(topicService.create(request, userDetails.getUsername()));
+                .body(topicService.create(courseId, roundNumber, request, userDetails.getUsername()));
     }
 
+    // 발제 수정
     @PutMapping("/admin/topics/{id}")
-    @Operation(summary = "발제 수정 - Admin 이상")
+    @Operation(summary = "발제 수정")
     public ResponseEntity<TopicResponse> update(
             @PathVariable Long id,
             @RequestBody TopicRequest request,
@@ -52,8 +54,9 @@ public class TopicController {
         return ResponseEntity.ok(topicService.update(id, request, userDetails.getUsername()));
     }
 
+    // 발제 삭제
     @DeleteMapping("/admin/topics/{id}")
-    @Operation(summary = "발제 삭제 - Admin 이상")
+    @Operation(summary = "발제 삭제")
     public ResponseEntity<Void> delete(
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetails userDetails) {

@@ -128,6 +128,37 @@ export const enrollment = {
     request<Enrollment>(`/api/admin/enrollments/${enrollmentId}/reject`, { method: 'PUT' }),
 };
 
+export interface Topic {
+  id: number;
+  title: string;
+  content: string;
+  courseId: number;
+  roundNumber: number;
+  authorName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const topic = {
+  getByRound: (courseId: number, roundNumber: number) =>
+    request<Topic[]>(`/api/courses/${courseId}/rounds/${roundNumber}/topics`),
+
+  create: (courseId: number, roundNumber: number, data: { title: string; content: string }) =>
+    request<Topic>(`/api/admin/courses/${courseId}/rounds/${roundNumber}/topics`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: number, data: { title: string; content: string }) =>
+    request<Topic>(`/api/admin/topics/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: number) =>
+    request(`/api/admin/topics/${id}`, { method: 'DELETE' }),
+};
+
 export type SubmissionStatus = 'SUBMITTED' | 'PASSED' | 'FAILED';
 
 export interface Submission {

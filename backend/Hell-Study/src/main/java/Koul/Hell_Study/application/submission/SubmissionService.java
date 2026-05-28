@@ -44,6 +44,10 @@ public class SubmissionService {
             throw new IllegalStateException("과제 제출 기한이 지났습니다.");
         }
 
+        if (submissionRepository.findByAssignmentIdAndUserId(assignmentId, user.getId()).isPresent()) {
+            throw new IllegalStateException("이미 제출한 과제입니다.");
+        }
+
         Submission submission = Submission.builder()
                 .assignment(assignment)
                 .user(user)
