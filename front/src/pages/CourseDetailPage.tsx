@@ -201,6 +201,7 @@ const CourseDetailPage = () => {
   };
 
   const openAssignModal = () => {
+    setAssignEditId(null);
     setAssignTitle('');
     setAssignDesc('');
     setAssignDeadline('');
@@ -208,26 +209,46 @@ const CourseDetailPage = () => {
     setAssignModalOpen(true);
   };
 
-  const handleCreateAssignment = async () => {
+  const openEditAssignModal = (a: Assignment) => {
+    setAssignEditId(a.id);
+    setAssignTitle(a.title);
+    setAssignDesc(a.description ?? '');
+    // LocalDateTime "2024-01-15T09:00:00" → datetime-local "2024-01-15T09:00"
+    setAssignDeadline(a.deadline.slice(0, 16));
+    setAssignError(null);
+    setAssignModalOpen(true);
+  };
+
+  const handleSaveAssignment = async () => {
     if (!assignTitle.trim() || !assignDeadline) return;
     setAssignLoading(true);
     setAssignError(null);
     try {
-      // datetime-local 값을 ISO 8601로 변환 (서버가 LocalDateTime 기대)
-      const deadlineIso = new Date(assignDeadline).toISOString().slice(0, 19);
-      const created = await assignmentApi.create(parseInt(id, 10), {
-        title: assignTitle.trim(),
-        description: assignDesc.trim(),
-        deadline: deadlineIso,
-        roundNumber: activeRound,
-      });
-      setAssignments(prev => {
-        const filtered = prev.filter(a => a.roundNumber !== created.roundNumber);
-        return [...filtered, created].sort((x, y) => x.roundNumber - y.roundNumber);
-      });
+      const deadlineIso = assignDeadline.length === 16 ? assignDeadline + ':00' : assignDeadline.slice(0, 19);
+      if (assignEditId !== null) {
+        // 수정
+        const updated = await assignmentApi.update(assignEditId, {
+          title: assignTitle.trim(),
+          description: assignDesc.trim(),
+          deadline: deadlineIso,
+        });
+        setAssignments(prev => prev.map(a => a.id === updated.id ? updated : a));
+      } else {
+        // 등록
+        const created = await assignmentApi.create(parseInt(id, 10), {
+          title: assignTitle.trim(),
+          description: assignDesc.trim(),
+          deadline: deadlineIso,
+          roundNumber: activeRound,
+        });
+        setAssignments(prev => {
+          const filtered = prev.filter(a => a.roundNumber !== created.roundNumber);
+          return [...filtered, created].sort((x, y) => x.roundNumber - y.roundNumber);
+        });
+      }
       setAssignModalOpen(false);
     } catch (err) {
-      setAssignError(err instanceof Error ? err.message : '등록 중 오류가 발생했습니다.');
+      setAssignError(err instanceof Error ? err.message : '저장 중 오류가 발생했습니다.');
     } finally {
       setAssignLoading(false);
     }
@@ -266,8 +287,9 @@ const CourseDetailPage = () => {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Admin 과제등록 모달 state
+  // Admin 과제등록/수정 모달 state
   const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [assignEditId, setAssignEditId] = useState<number | null>(null); // null = 등록, number = 수정
   const [assignTitle, setAssignTitle] = useState('');
   const [assignDesc, setAssignDesc] = useState('');
   const [assignDeadline, setAssignDeadline] = useState('');
@@ -434,7 +456,7 @@ const CourseDetailPage = () => {
           <button className="cd-hamburger" onClick={() => setSidebarOpen(v => !v)} aria-label="메뉴">
             <Menu size={20} />
           </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }} onClick={() => navigate('/')}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }} onClick={() => navigate('/course')}>
             <img src="/logo.png" alt="logo" className="cd-logo-img" style={{ width: 24, height: 24 }} />
             <span className="cd-logo-text" style={{ fontSize: '0.9rem' }}>
               <span className="cd-logo-hell">Hell</span> Study
@@ -456,7 +478,7 @@ const CourseDetailPage = () => {
       {/* ── Sidebar ── */}
       <aside className={`cd-sidebar${sidebarOpen ? ' cd-sidebar--open' : ''}`}>
         <div className="cd-sidebar-top">
-          <div className="cd-logo-row" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
+          <div className="cd-logo-row" onClick={() => navigate('/course')} style={{ cursor: 'pointer' }}>
             <img src="/logo.png" alt="logo" className="cd-logo-img" />
             <span className="cd-logo-text"><span className="cd-logo-hell">Hell</span> Study</span>
           </div>
@@ -665,7 +687,9 @@ const CourseDetailPage = () => {
           <div className="submit-modal-overlay" onClick={() => setAssignModalOpen(false)}>
             <div className="submit-modal assign-modal" onClick={e => e.stopPropagation()}>
               <div className="submit-modal-header">
-                <h3 className="submit-modal-title">과제 등록 — Round {activeRound}</h3>
+                <h3 className="submit-modal-title">
+                  {assignEditId !== null ? `과제 수정 — Round ${activeRound}` : `과제 등록 — Round ${activeRound}`}
+                </h3>
                 <button className="submit-modal-close" onClick={() => setAssignModalOpen(false)}><X size={16} /></button>
               </div>
               <div className="assign-modal-fields">
@@ -679,8 +703,8 @@ const CourseDetailPage = () => {
                 <label className="submit-modal-label">설명</label>
                 <div className="assign-editor-wrap">
                   <BaljaeEditor
-                    key={`assign-editor-${assignModalOpen}`}
-                    content=""
+                    key={`assign-editor-${assignEditId ?? 'new'}`}
+                    content={assignDesc}
                     editable
                     placeholder="과제 설명을 입력하세요. 요구사항, 제출 형식, 참고 자료 등을 작성할 수 있습니다."
                     onUpdate={setAssignDesc}
@@ -698,10 +722,12 @@ const CourseDetailPage = () => {
               <div className="submit-modal-actions">
                 <button
                   className="submit-modal-btn-primary"
-                  onClick={handleCreateAssignment}
+                  onClick={handleSaveAssignment}
                   disabled={assignLoading || !assignTitle.trim() || !assignDeadline}
                 >
-                  {assignLoading ? '등록 중...' : '등록하기'}
+                  {assignLoading
+                    ? (assignEditId !== null ? '수정 중...' : '등록 중...')
+                    : (assignEditId !== null ? '수정하기' : '등록하기')}
                 </button>
                 <button className="submit-modal-btn-secondary" onClick={() => setAssignModalOpen(false)}>
                   취소
@@ -884,9 +910,17 @@ const CourseDetailPage = () => {
                           />
                         </div>
                       )}
-                      <div className="cd-deadline" style={{ marginTop: '0.75rem' }}>
-                        <span>제출 마감:&nbsp;</span>
-                        <span className="cd-deadline-date">{formatDeadline(new Date(currentAssignment.deadline))}</span>
+                      <div className="cd-assign-admin-footer">
+                        <div className="cd-deadline">
+                          <span>제출 마감:&nbsp;</span>
+                          <span className="cd-deadline-date">{formatDeadline(new Date(currentAssignment.deadline))}</span>
+                        </div>
+                        <button
+                          className="assign-edit-btn"
+                          onClick={() => openEditAssignModal(currentAssignment)}
+                        >
+                          <Pencil size={13} />수정
+                        </button>
                       </div>
                       {/* 제출 목록 토글 */}
                       <div className="sub-list-toggle-row">

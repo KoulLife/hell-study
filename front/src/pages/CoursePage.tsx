@@ -5,6 +5,7 @@ import type { CardData } from '@/components/ui/course-design-cards';
 import { useAuth } from '@/contexts/AuthContext';
 import { course as courseApi, enrollment as enrollmentApi } from '@/lib/api';
 import type { Course } from '@/lib/api';
+import { Trash2 } from 'lucide-react';
 
 const COLOR_CYCLE: CardData['colorClass'][] = ['blue', 'green', 'orange', 'red'];
 
@@ -61,6 +62,24 @@ const CoursePage = () => {
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   const isAdmin = currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN';
+
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleDelete = async (courseId: number, courseTitle: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`"${courseTitle}" 코스를 삭제하시겠습니까?\n\n코스에 속한 모든 과제와 제출 기록이 함께 삭제됩니다.`)) return;
+    setDeletingId(courseId);
+    setDeleteError(null);
+    try {
+      await courseApi.delete(courseId);
+      setCards(prev => prev.filter(c => c.id !== courseId));
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : '삭제 중 오류가 발생했습니다.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   useEffect(() => {
     courseApi.getAll()
@@ -129,7 +148,7 @@ const CoursePage = () => {
     <div className="course-page">
       {/* Navbar */}
       <nav className="course-nav">
-        <div className="course-nav-left" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
+        <div className="course-nav-left" onClick={() => navigate('/course')} style={{ cursor: 'pointer' }}>
           <img src="/logo.png" alt="Hell Study" className="course-nav-logo" />
           <span className="course-nav-title">
             <span className="course-nav-hell">Hell</span> Study
@@ -197,6 +216,9 @@ const CoursePage = () => {
         {enrollError && (
           <p style={{ color: 'var(--clr-red)', fontSize: '0.875rem', marginBottom: '1rem' }}>{enrollError}</p>
         )}
+        {deleteError && (
+          <p style={{ color: 'var(--clr-red)', fontSize: '0.875rem', marginBottom: '1rem' }}>{deleteError}</p>
+        )}
 
         {cards.length === 0 && !loadError && (
           <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.9375rem' }}>
@@ -239,15 +261,27 @@ const CoursePage = () => {
                   </button>
                 )}
                 {isAdmin && (
-                  <button
-                    className="course-card-enroll-btn admin-manage"
-                    onClick={(e) => { e.stopPropagation(); navigate(`/admin/courses/${card.id}/enrollments`); }}
-                  >
-                    신청 관리
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
-                      <path fillRule="evenodd" d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L8.94 8 6.22 5.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                    </svg>
-                  </button>
+                  <div className="course-card-admin-actions">
+                    <button
+                      className="course-card-enroll-btn admin-manage"
+                      onClick={(e) => { e.stopPropagation(); navigate(`/admin/courses/${card.id}/enrollments`); }}
+                    >
+                      신청 관리
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
+                        <path fillRule="evenodd" d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L8.94 8 6.22 5.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                    <button
+                      className="course-card-delete-btn"
+                      onClick={(e) => handleDelete(card.id, card.title, e)}
+                      disabled={deletingId === card.id}
+                      title="코스 삭제"
+                    >
+                      {deletingId === card.id
+                        ? <span style={{ fontSize: '0.75rem' }}>삭제 중...</span>
+                        : <Trash2 size={14} />}
+                    </button>
+                  </div>
                 )}
               </div>
             );

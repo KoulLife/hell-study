@@ -6,8 +6,10 @@ import Koul.Hell_Study.domain.assignment.Assignment;
 import Koul.Hell_Study.domain.assignment.AssignmentRepository;
 import Koul.Hell_Study.domain.course.Course;
 import Koul.Hell_Study.domain.course.CourseRepository;
+import Koul.Hell_Study.domain.enrollment.CourseEnrollmentRepository;
 import Koul.Hell_Study.domain.submission.SubmissionRepository;
 import Koul.Hell_Study.domain.submission.SubmissionStatus;
+import Koul.Hell_Study.domain.topic.TopicRepository;
 import Koul.Hell_Study.domain.user.Role;
 import Koul.Hell_Study.domain.user.User;
 import Koul.Hell_Study.domain.user.UserRepository;
@@ -26,6 +28,8 @@ public class CourseService {
     private final UserRepository userRepository;
     private final AssignmentRepository assignmentRepository;
     private final SubmissionRepository submissionRepository;
+    private final CourseEnrollmentRepository enrollmentRepository;
+    private final TopicRepository topicRepository;
 
     public List<CourseResponse> getCourses() {
         return courseRepository.findAll().stream()
@@ -83,6 +87,10 @@ public class CourseService {
     public void delete(Long id, String loginId) {
         Course course = findById(id);
         validateOwnership(course, findUser(loginId));
+
+        // FK 참조 순서대로 삭제: enrollments → topics → course (assignments/submissions은 cascade)
+        enrollmentRepository.deleteAll(enrollmentRepository.findAllByCourse(course));
+        topicRepository.deleteAll(topicRepository.findAllByCourse(course));
         courseRepository.delete(course);
     }
 

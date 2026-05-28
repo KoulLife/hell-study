@@ -86,6 +86,9 @@ export const course = {
 
   completeRound: (id: number) =>
     request<Course>(`/api/admin/courses/${id}/complete-round`, { method: 'POST' }),
+
+  delete: (id: number) =>
+    request(`/api/admin/courses/${id}`, { method: 'DELETE' }),
 };
 
 export const assignment = {
@@ -95,7 +98,13 @@ export const assignment = {
   create: (courseId: number, data: { title: string; description: string; deadline: string; roundNumber: number }) =>
     request<Assignment>(`/api/admin/courses/${courseId}/assignments`, {
       method: 'POST',
-      body: JSON.stringify({ ...data, deadline: data.deadline }),
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: number, data: { title: string; description: string; deadline: string }) =>
+    request<Assignment>(`/api/admin/assignments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
     }),
 };
 

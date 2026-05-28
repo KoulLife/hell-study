@@ -1825,6 +1825,42 @@ body {
   color: rgba(255,255,255,0.75);
 }
 
+.course-card-admin-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.course-card-admin-actions .course-card-enroll-btn {
+  flex: 1;
+}
+
+.course-card-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.75rem;
+  height: 36px;
+  background: rgba(224,92,58,0.07);
+  border: 1px solid rgba(224,92,58,0.2);
+  border-radius: 6px;
+  color: rgba(224,92,58,0.6);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.course-card-wrapper:hover .course-card-delete-btn {
+  background: rgba(224,92,58,0.12);
+  border-color: rgba(224,92,58,0.4);
+  color: var(--clr-red);
+}
+
+.course-card-delete-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* =============================================
    Enrollment Gate Modal (CourseDetailPage)
    ============================================= */
@@ -2511,6 +2547,37 @@ body {
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.02);
   user-select: none;
+}
+
+/* Admin assignment card footer (deadline + edit button) */
+.cd-assign-admin-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.75rem;
+  gap: 1rem;
+}
+
+.assign-edit-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.75rem;
+  background: rgba(255, 183, 65, 0.08);
+  border: 1px solid rgba(255, 183, 65, 0.25);
+  border-radius: 6px;
+  color: var(--clr-orange);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.assign-edit-btn:hover {
+  background: rgba(255, 183, 65, 0.15);
+  border-color: rgba(255, 183, 65, 0.5);
 }
 
 /* Admin empty assignment + create button */

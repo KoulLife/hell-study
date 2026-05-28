@@ -96,7 +96,7 @@ const EnrollmentManagePage = () => {
     <div className="course-page">
       {/* Navbar */}
       <nav className="course-nav">
-        <div className="course-nav-left" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
+        <div className="course-nav-left" onClick={() => navigate('/course')} style={{ cursor: 'pointer' }}>
           <img src="/logo.png" alt="Hell Study" className="course-nav-logo" />
           <span className="course-nav-title">
             <span className="course-nav-hell">Hell</span> Study

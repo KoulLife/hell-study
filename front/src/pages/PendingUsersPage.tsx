@@ -53,7 +53,7 @@ const PendingUsersPage: React.FC = () => {
       {/* Navbar — same style as CoursePage */}
       <nav className="course-nav">
         <div className="course-nav-left">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer' }} onClick={() => navigate('/')}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer' }} onClick={() => navigate('/course')}>
             <img src="/logo.png" alt="Hell Study" className="course-nav-logo" />
             <span className="course-nav-title">
               <span className="course-nav-hell">Hell</span> Study
