@@ -8,11 +8,19 @@ import SignUpPage from '@/pages/SignUpPage';
 import CoursePage from '@/pages/CoursePage';
 import CourseDetailPage from '@/pages/CourseDetailPage';
 import PendingUsersPage from '@/pages/PendingUsersPage';
+import EnrollmentManagePage from '@/pages/EnrollmentManagePage';
 
 const SuperAdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, isLoading } = useAuth();
   if (isLoading) return null;
   if (currentUser?.role !== 'SUPER_ADMIN') return <Navigate to="/course" replace />;
+  return <>{children}</>;
+};
+
+const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { currentUser, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (currentUser?.role !== 'ADMIN' && currentUser?.role !== 'SUPER_ADMIN') return <Navigate to="/course" replace />;
   return <>{children}</>;
 };
 
@@ -32,6 +40,15 @@ function AppRoutes() {
           <SuperAdminRoute>
             <PendingUsersPage />
           </SuperAdminRoute>
+        }
+      />
+
+      <Route
+        path="/admin/courses/:courseId/enrollments"
+        element={
+          <AdminRoute>
+            <EnrollmentManagePage />
+          </AdminRoute>
         }
       />
 

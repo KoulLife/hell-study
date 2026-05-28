@@ -1,99 +1,89 @@
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import Card from '@/components/ui/course-design-cards';
 import type { CardData } from '@/components/ui/course-design-cards';
 import { useAuth } from '@/contexts/AuthContext';
+import { course as courseApi, enrollment as enrollmentApi } from '@/lib/api';
+import type { Course } from '@/lib/api';
 
-const courseData: CardData[] = [
-  {
-    id: 1,
-    colorClass: 'blue',
-    date: 'Jan 15, 2025',
-    title: 'Java',
-    description: 'Spring Boot 백엔드 개발',
-    progressPercent: '75%',
-    progressValue: '75%',
-    imgSrc1: 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=100',
-    imgAlt1: 'Instructor',
-    imgSrc2: 'https://images.pexels.com/photos/1043474/pexels-photo-1043474.jpeg?auto=compress&cs=tinysrgb&w=100',
-    imgAlt2: 'Student',
-    countdownText: '5 days left',
-  },
-  {
-    id: 2,
-    colorClass: 'green',
-    date: 'Feb 01, 2025',
-    title: 'React',
-    description: '프론트엔드 개발',
-    progressPercent: '45%',
-    progressValue: '45%',
-    imgSrc1: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=100',
-    imgAlt1: 'Instructor',
-    imgSrc2: 'https://images.pexels.com/photos/874158/pexels-photo-874158.jpeg?auto=compress&cs=tinysrgb&w=100',
-    imgAlt2: 'Student',
-    countdownText: '2 weeks left',
-  },
-  {
-    id: 3,
-    colorClass: 'orange',
-    date: 'Feb 20, 2025',
-    title: 'Python',
-    description: '데이터 사이언스 & AI',
-    progressPercent: '30%',
-    progressValue: '30%',
-    imgSrc1: 'https://images.pexels.com/photos/91227/pexels-photo-91227.jpeg?auto=compress&cs=tinysrgb&w=100',
-    imgAlt1: 'Instructor',
-    imgSrc2: 'https://images.pexels.com/photos/733872/pexels-photo-733872.jpeg?auto=compress&cs=tinysrgb&w=100',
-    imgAlt2: 'Student',
-    countdownText: '3 weeks left',
-  },
-  {
-    id: 4,
-    colorClass: 'red',
-    date: 'Mar 10, 2025',
-    title: 'TypeScript',
-    description: '타입 안전 개발',
-    progressPercent: '60%',
-    progressValue: '60%',
-    imgSrc1: 'https://images.pexels.com/photos/2379005/pexels-photo-2379005.jpeg?auto=compress&cs=tinysrgb&w=100',
-    imgAlt1: 'Instructor',
-    imgSrc2: 'https://images.pexels.com/photos/1036623/pexels-photo-1036623.jpeg?auto=compress&cs=tinysrgb&w=100',
-    imgAlt2: 'Student',
-    countdownText: '1 month left',
-  },
-  {
-    id: 5,
-    colorClass: 'green',
-    date: 'Mar 25, 2025',
-    title: 'Node.js',
-    description: 'REST API 설계',
-    progressPercent: '20%',
-    progressValue: '20%',
-    imgSrc1: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=100',
-    imgAlt1: 'Instructor',
-    imgSrc2: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100',
-    imgAlt2: 'Student',
-    countdownText: '5 weeks left',
-  },
-  {
-    id: 6,
-    colorClass: 'blue',
-    date: 'Apr 05, 2025',
-    title: 'SQL',
-    description: '데이터베이스 설계',
-    progressPercent: '55%',
-    progressValue: '55%',
-    imgSrc1: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100',
-    imgAlt1: 'Instructor',
-    imgSrc2: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=100',
-    imgAlt2: 'Student',
-    countdownText: '2 weeks left',
-  },
-];
+const COLOR_CYCLE: CardData['colorClass'][] = ['blue', 'green', 'orange', 'red'];
+
+function courseToCardData(c: Course, index: number): CardData {
+  return {
+    id: c.id,
+    colorClass: COLOR_CYCLE[index % COLOR_CYCLE.length],
+    date: new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    title: c.title,
+    description: c.description,
+    progressPercent: '0%',
+    progressValue: '0%',
+    countdownText: c.createdByName,
+  };
+}
 
 const CoursePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentUser, logout } = useAuth();
+
+  const [cards, setCards] = useState<CardData[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [enrolledIds, setEnrolledIds] = useState<Set<number>>(new Set());
+  const [enrollingId, setEnrollingId] = useState<number | null>(null);
+  const [enrollError, setEnrollError] = useState<string | null>(null);
+
+  const isUser = currentUser?.role === 'USER';
+
+  const handleEnroll = async (courseId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (enrolledIds.has(courseId)) return;
+    setEnrollingId(courseId);
+    setEnrollError(null);
+    try {
+      await enrollmentApi.apply(courseId);
+      setEnrolledIds(prev => new Set([...prev, courseId]));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '신청 중 오류가 발생했습니다.';
+      setEnrollError(msg);
+    } finally {
+      setEnrollingId(null);
+    }
+  };
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [formTitle, setFormTitle] = useState('');
+  const [formDesc, setFormDesc] = useState('');
+  const [formRounds, setFormRounds] = useState(4);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  const isAdmin = currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN';
+
+  useEffect(() => {
+    courseApi.getAll()
+      .then((courses) => setCards(courses.map(courseToCardData)))
+      .catch((err: Error) => setLoadError(err.message));
+
+    if (isUser) {
+      enrollmentApi.getMy()
+        .then((enrollments) => {
+          const activeIds = enrollments
+            .filter(e => e.status === 'PENDING' || e.status === 'APPROVED')
+            .map(e => e.courseId);
+          setEnrolledIds(new Set(activeIds));
+        })
+        .catch(() => { /* 무시 — 버튼 비활성화 실패해도 페이지는 정상 동작 */ });
+    }
+  }, [isUser]);
+
+  useEffect(() => {
+    if (modalOpen) {
+      setTimeout(() => titleInputRef.current?.focus(), 50);
+    }
+  }, [modalOpen]);
 
   const handleLogout = async () => {
     await logout();
@@ -102,6 +92,38 @@ const CoursePage = () => {
 
   const isActive = (path: string) =>
     location.pathname.startsWith(path) ? { color: 'var(--clr-orange)' } : {};
+
+  const openModal = () => {
+    setFormTitle('');
+    setFormDesc('');
+    setFormRounds(4);
+    setFormError(null);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    if (submitting) return;
+    setModalOpen(false);
+  };
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formTitle.trim()) {
+      setFormError('코스 이름을 입력해주세요.');
+      return;
+    }
+    setFormError(null);
+    setSubmitting(true);
+    try {
+      const created = await courseApi.create({ title: formTitle.trim(), description: formDesc.trim(), totalRounds: formRounds });
+      setCards((prev) => [...prev, courseToCardData(created, prev.length)]);
+      setModalOpen(false);
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : '코스 생성에 실패했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="course-page">
@@ -114,7 +136,6 @@ const CoursePage = () => {
           </span>
         </div>
 
-        {/* Center nav links */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           <Link
             to="/course"
@@ -153,22 +174,167 @@ const CoursePage = () => {
       {/* Main */}
       <main className="course-main">
         <div className="course-header-section">
-          <h1 className="course-page-title">내 강의실</h1>
-          <p className="course-page-subtitle">지옥 같은 훈련이 천국 같은 결과를 만든다. 오늘도 불태워라.</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <h1 className="course-page-title">내 강의실</h1>
+              <p className="course-page-subtitle">지옥 같은 훈련이 천국 같은 결과를 만든다. 오늘도 불태워라.</p>
+            </div>
+            {isAdmin && (
+              <button className="course-create-btn" onClick={openModal}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                  <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
+                </svg>
+                코스 생성
+              </button>
+            )}
+          </div>
         </div>
 
+        {loadError && (
+          <p style={{ color: 'var(--clr-red)', fontSize: '0.875rem', marginBottom: '1rem' }}>{loadError}</p>
+        )}
+
+        {enrollError && (
+          <p style={{ color: 'var(--clr-red)', fontSize: '0.875rem', marginBottom: '1rem' }}>{enrollError}</p>
+        )}
+
+        {cards.length === 0 && !loadError && (
+          <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.9375rem' }}>
+            {isAdmin ? '아직 코스가 없습니다. 코스를 생성해보세요.' : '아직 코스가 없습니다.'}
+          </p>
+        )}
+
         <div className="course-grid">
-          {courseData.map((card) => (
-            <div
-              key={card.id}
-              onClick={() => navigate(`/course/${card.id}`)}
-              style={{ cursor: 'pointer' }}
-            >
-              <Card data={card} />
-            </div>
-          ))}
+          {cards.map((card) => {
+            const enrolled = enrolledIds.has(card.id);
+            const loading = enrollingId === card.id;
+            return (
+              <div key={card.id} className="course-card-wrapper">
+                <div onClick={() => navigate(`/course/${card.id}`)} style={{ cursor: 'pointer' }}>
+                  <Card data={card} />
+                </div>
+                {isUser && (
+                  <button
+                    className={`course-card-enroll-btn${enrolled ? ' enrolled' : ''}`}
+                    onClick={(e) => handleEnroll(card.id, e)}
+                    disabled={loading || enrolled}
+                  >
+                    {loading ? (
+                      '신청 중...'
+                    ) : enrolled ? (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="13" height="13">
+                          <path fillRule="evenodd" d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z" clipRule="evenodd" />
+                        </svg>
+                        신청 완료
+                      </>
+                    ) : (
+                      <>
+                        수강 신청
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
+                          <path fillRule="evenodd" d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L8.94 8 6.22 5.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                        </svg>
+                      </>
+                    )}
+                  </button>
+                )}
+                {isAdmin && (
+                  <button
+                    className="course-card-enroll-btn admin-manage"
+                    onClick={(e) => { e.stopPropagation(); navigate(`/admin/courses/${card.id}/enrollments`); }}
+                  >
+                    신청 관리
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
+                      <path fillRule="evenodd" d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L8.94 8 6.22 5.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       </main>
+
+      {/* Course Create Modal */}
+      {modalOpen && (
+        <div className="course-modal-overlay" onClick={closeModal}>
+          <div className="course-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="course-modal-header">
+              <h2 className="course-modal-title">새 코스 생성</h2>
+              <button className="course-modal-close" onClick={closeModal} disabled={submitting}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                  <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleCreate} className="course-modal-form">
+              <div className="course-modal-field">
+                <label className="course-modal-label" htmlFor="course-title">코스 이름 *</label>
+                <input
+                  id="course-title"
+                  ref={titleInputRef}
+                  className="course-modal-input"
+                  type="text"
+                  placeholder="예: Spring Boot 기초"
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  disabled={submitting}
+                  maxLength={100}
+                />
+              </div>
+
+              <div className="course-modal-field">
+                <label className="course-modal-label">총 라운드 수 *</label>
+                <div className="course-stepper">
+                  <button
+                    type="button"
+                    className="course-stepper-btn"
+                    onClick={() => setFormRounds((v) => Math.max(1, v - 1))}
+                    disabled={submitting || formRounds <= 1}
+                    aria-label="라운드 감소"
+                  >−</button>
+                  <span className="course-stepper-value">{formRounds}</span>
+                  <button
+                    type="button"
+                    className="course-stepper-btn"
+                    onClick={() => setFormRounds((v) => Math.min(52, v + 1))}
+                    disabled={submitting || formRounds >= 52}
+                    aria-label="라운드 증가"
+                  >+</button>
+                </div>
+              </div>
+
+              <div className="course-modal-field">
+                <label className="course-modal-label" htmlFor="course-desc">코스 설명</label>
+                <textarea
+                  id="course-desc"
+                  className="course-modal-textarea"
+                  placeholder="코스에 대한 간단한 설명을 입력하세요."
+                  value={formDesc}
+                  onChange={(e) => setFormDesc(e.target.value)}
+                  disabled={submitting}
+                  rows={4}
+                  maxLength={500}
+                />
+              </div>
+
+              {formError && (
+                <p className="course-modal-error">{formError}</p>
+              )}
+
+              <div className="course-modal-actions">
+                <button type="button" className="course-modal-btn-cancel" onClick={closeModal} disabled={submitting}>
+                  취소
+                </button>
+                <button type="submit" className="course-modal-btn-submit" disabled={submitting}>
+                  {submitting ? '생성 중...' : '코스 생성'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

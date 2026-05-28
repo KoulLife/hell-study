@@ -27,15 +27,28 @@ public class AssignmentController {
     private final SubmissionService submissionService;
 
     @GetMapping("/courses/{courseId}/assignments")
-    @Operation(summary = "코스별 과제 목록 조회")
-    public ResponseEntity<List<AssignmentResponse>> getAssignments(@PathVariable Long courseId) {
-        return ResponseEntity.ok(assignmentService.getAssignmentsByCourse(courseId));
+    @Operation(summary = "코스별 과제 목록 조회 - 수강 승인된 사용자만")
+    public ResponseEntity<List<AssignmentResponse>> getAssignments(
+            @PathVariable Long courseId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(assignmentService.getAssignmentsByCourse(courseId, userDetails.getUsername()));
+    }
+
+    @GetMapping("/courses/{courseId}/rounds/{roundNumber}/assignments")
+    @Operation(summary = "라운드별 과제 목록 조회 - 수강 승인된 사용자만")
+    public ResponseEntity<List<AssignmentResponse>> getAssignmentsByRound(
+            @PathVariable Long courseId,
+            @PathVariable int roundNumber,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(assignmentService.getAssignmentsByRound(courseId, roundNumber, userDetails.getUsername()));
     }
 
     @GetMapping("/assignments/{id}")
-    @Operation(summary = "과제 상세 조회")
-    public ResponseEntity<AssignmentResponse> getAssignment(@PathVariable Long id) {
-        return ResponseEntity.ok(assignmentService.getAssignment(id));
+    @Operation(summary = "과제 상세 조회 - 수강 승인된 사용자만")
+    public ResponseEntity<AssignmentResponse> getAssignment(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(assignmentService.getAssignment(id, userDetails.getUsername()));
     }
 
     @PostMapping("/admin/courses/{courseId}/assignments")
@@ -75,6 +88,17 @@ public class AssignmentController {
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(submissionService.submit(assignmentId, request, userDetails.getUsername()));
+    }
+
+    // 내 제출 단건 조회 (User, 특정 과제)
+    @GetMapping("/assignments/{assignmentId}/my-submission")
+    @Operation(summary = "내 과제 제출 조회 - 수강자 본인 제출 확인")
+    public ResponseEntity<SubmissionResponse> getMySubmission(
+            @PathVariable Long assignmentId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        SubmissionResponse result = submissionService.getMySubmissionByAssignment(assignmentId, userDetails.getUsername());
+        if (result == null) return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(result);
     }
 
     // 과제별 제출 목록 (Admin, 5-2)

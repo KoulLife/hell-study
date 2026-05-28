@@ -13,6 +13,8 @@ public class AssignmentResponse {
     private String title;
     private String description;
     private LocalDateTime deadline;
+    private int roundNumber;
+    private boolean closed;
     private Long courseId;
     private String createdByName;
     private LocalDateTime createdAt;
@@ -23,6 +25,8 @@ public class AssignmentResponse {
                 .title(assignment.getTitle())
                 .description(assignment.getDescription())
                 .deadline(assignment.getDeadline())
+                .roundNumber(assignment.getRoundNumber())
+                .closed(assignment.isClosed())
                 .courseId(assignment.getCourse().getId())
                 .createdByName(assignment.getCreatedBy().getName())
                 .createdAt(assignment.getCreatedAt())

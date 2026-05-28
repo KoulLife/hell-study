@@ -2,8 +2,12 @@ package Koul.Hell_Study.application.course;
 
 import Koul.Hell_Study.api.course.dto.CourseRequest;
 import Koul.Hell_Study.api.course.dto.CourseResponse;
+import Koul.Hell_Study.domain.assignment.Assignment;
+import Koul.Hell_Study.domain.assignment.AssignmentRepository;
 import Koul.Hell_Study.domain.course.Course;
 import Koul.Hell_Study.domain.course.CourseRepository;
+import Koul.Hell_Study.domain.submission.SubmissionRepository;
+import Koul.Hell_Study.domain.submission.SubmissionStatus;
 import Koul.Hell_Study.domain.user.Role;
 import Koul.Hell_Study.domain.user.User;
 import Koul.Hell_Study.domain.user.UserRepository;
@@ -20,6 +24,8 @@ public class CourseService {
 
     private final CourseRepository courseRepository;
     private final UserRepository userRepository;
+    private final AssignmentRepository assignmentRepository;
+    private final SubmissionRepository submissionRepository;
 
     public List<CourseResponse> getCourses() {
         return courseRepository.findAll().stream()
@@ -55,6 +61,20 @@ public class CourseService {
     public CourseResponse completeRound(Long id, String loginId) {
         Course course = findById(id);
         validateOwnership(course, findUser(loginId));
+
+        int targetRound = course.getCompletedRounds() + 1;
+        List<Assignment> roundAssignments = assignmentRepository.findAllByCourseAndRoundNumber(course, targetRound);
+
+        if (!roundAssignments.isEmpty()) {
+            boolean hasUnevaluated = submissionRepository
+                    .existsByAssignmentInAndStatus(roundAssignments, SubmissionStatus.SUBMITTED);
+            if (hasUnevaluated) {
+                throw new IllegalStateException(
+                    targetRound + "라운드에 아직 평가되지 않은 제출이 있어 라운드를 종료할 수 없습니다.");
+            }
+            roundAssignments.forEach(Assignment::close);
+        }
+
         course.completeRound();
         return CourseResponse.from(course);
     }

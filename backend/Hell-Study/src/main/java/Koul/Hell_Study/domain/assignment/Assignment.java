@@ -34,6 +34,14 @@ public class Assignment {
     @Column(nullable = false)
     private LocalDateTime deadline;
 
+    // 소속 라운드 번호 (1부터 시작, Course.totalRounds 이하)
+    @Column(nullable = false)
+    private int roundNumber;
+
+    // 라운드 종료 시 true로 변경 — 이후 제출 불가
+    @Column(nullable = false)
+    private boolean closed = false;
+
     // 코스 하위 과제 (4-2)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "course_id", nullable = false)
@@ -58,10 +66,11 @@ public class Assignment {
 
     @Builder
     private Assignment(String title, String description, LocalDateTime deadline,
-                       Course course, User createdBy) {
+                       int roundNumber, Course course, User createdBy) {
         this.title = title;
         this.description = description;
         this.deadline = deadline;
+        this.roundNumber = roundNumber;
         this.course = course;
         this.createdBy = createdBy;
     }
@@ -70,6 +79,10 @@ public class Assignment {
         this.title = title;
         this.description = description;
         this.deadline = deadline;
+    }
+
+    public void close() {
+        this.closed = true;
     }
 
     // 제출 기한이 지났는지 확인 (3-2: 기한 이후 제출 불가)

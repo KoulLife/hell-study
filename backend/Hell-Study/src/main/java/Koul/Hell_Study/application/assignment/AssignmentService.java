@@ -6,6 +6,9 @@ import Koul.Hell_Study.domain.assignment.Assignment;
 import Koul.Hell_Study.domain.assignment.AssignmentRepository;
 import Koul.Hell_Study.domain.course.Course;
 import Koul.Hell_Study.domain.course.CourseRepository;
+import Koul.Hell_Study.domain.enrollment.CourseEnrollmentRepository;
+import Koul.Hell_Study.domain.enrollment.EnrollmentStatus;
+import Koul.Hell_Study.domain.exception.ForbiddenException;
 import Koul.Hell_Study.domain.user.Role;
 import Koul.Hell_Study.domain.user.User;
 import Koul.Hell_Study.domain.user.UserRepository;
@@ -23,16 +26,28 @@ public class AssignmentService {
     private final AssignmentRepository assignmentRepository;
     private final CourseRepository courseRepository;
     private final UserRepository userRepository;
+    private final CourseEnrollmentRepository enrollmentRepository;
 
-    public List<AssignmentResponse> getAssignmentsByCourse(Long courseId) {
+    public List<AssignmentResponse> getAssignmentsByCourse(Long courseId, String loginId) {
         Course course = findCourse(courseId);
+        validateCourseAccess(course, findUser(loginId));
         return assignmentRepository.findAllByCourse(course).stream()
                 .map(AssignmentResponse::from)
                 .toList();
     }
 
-    public AssignmentResponse getAssignment(Long id) {
-        return AssignmentResponse.from(findById(id));
+    public List<AssignmentResponse> getAssignmentsByRound(Long courseId, int roundNumber, String loginId) {
+        Course course = findCourse(courseId);
+        validateCourseAccess(course, findUser(loginId));
+        return assignmentRepository.findAllByCourseAndRoundNumber(course, roundNumber).stream()
+                .map(AssignmentResponse::from)
+                .toList();
+    }
+
+    public AssignmentResponse getAssignment(Long id, String loginId) {
+        Assignment assignment = findById(id);
+        validateCourseAccess(assignment.getCourse(), findUser(loginId));
+        return AssignmentResponse.from(assignment);
     }
 
     @Transactional
@@ -40,15 +55,20 @@ public class AssignmentService {
         Course course = findCourse(courseId);
         User user = findUser(loginId);
 
-        // Admin은 자신이 개설한 코스에만 과제 추가 가능
         if (user.getRole() != Role.SUPER_ADMIN && !course.isOwnedBy(user)) {
             throw new IllegalArgumentException("접근 권한이 없습니다.");
+        }
+
+        if (request.getRoundNumber() < 1 || request.getRoundNumber() > course.getTotalRounds()) {
+            throw new IllegalArgumentException(
+                "라운드 번호는 1 이상 " + course.getTotalRounds() + " 이하여야 합니다.");
         }
 
         Assignment assignment = Assignment.builder()
                 .title(request.getTitle())
                 .description(request.getDescription())
                 .deadline(request.getDeadline())
+                .roundNumber(request.getRoundNumber())
                 .course(course)
                 .createdBy(user)
                 .build();
@@ -68,6 +88,23 @@ public class AssignmentService {
         Assignment assignment = findById(id);
         validateOwnership(assignment, findUser(loginId));
         assignmentRepository.delete(assignment);
+    }
+
+    // SUPER_ADMIN, 코스 소유자, APPROVED 수강자만 접근 허용
+    private void validateCourseAccess(Course course, User user) {
+        if (user.getRole() == Role.SUPER_ADMIN) return;
+        if (course.isOwnedBy(user)) return;
+
+        enrollmentRepository.findByCourseAndApplicant(course, user).ifPresentOrElse(
+            enrollment -> {
+                switch (enrollment.getStatus()) {
+                    case APPROVED -> { /* 허용 */ }
+                    case PENDING -> throw new ForbiddenException("수강 신청이 승인 대기 중입니다.");
+                    case REJECTED -> throw new ForbiddenException("수강 신청이 거절되었습니다.");
+                }
+            },
+            () -> { throw new ForbiddenException("수강 신청이 필요합니다."); }
+        );
     }
 
     private void validateOwnership(Assignment assignment, User user) {

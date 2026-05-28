@@ -10,5 +10,7 @@ public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
 
     List<Assignment> findAllByCourse(Course course);
 
+    List<Assignment> findAllByCourseAndRoundNumber(Course course, int roundNumber);
+
     List<Assignment> findAllByCreatedBy(User createdBy);
 }

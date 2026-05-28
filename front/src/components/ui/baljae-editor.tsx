@@ -29,15 +29,16 @@ interface BaljaeEditorProps {
   content: string;
   editable?: boolean;
   onUpdate?: (html: string) => void;
+  placeholder?: string;
 }
 
-const BaljaeEditor = ({ content, editable = true, onUpdate }: BaljaeEditorProps) => {
+const BaljaeEditor = ({ content, editable = true, onUpdate, placeholder = '내용을 입력하세요. "/" 로 블록을 삽입할 수 있습니다...' }: BaljaeEditorProps) => {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
         codeBlock: { HTMLAttributes: { class: 'baljae-code-block' } },
       }),
-      Placeholder.configure({ placeholder: '내용을 입력하세요. "/" 로 블록을 삽입할 수 있습니다...' }),
+      Placeholder.configure({ placeholder }),
       Typography,
     ],
     content,
